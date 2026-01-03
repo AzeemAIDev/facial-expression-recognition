@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Emotion Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
+
+    <div class="glass-card w-full max-w-md rounded-3xl shadow-2xl p-8 text-center border border-white/20">
+        <h1 class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 mb-2">
+            AI Expressions
+        </h1>
+        <p class="text-gray-500 mb-8 font-medium">Identify emotions in real-time</p>
+
+        <div id="preview-container" class="mb-6 hidden">
+            <div class="relative inline-block">
+                <img id="image-preview" class="w-56 h-56 mx-auto rounded-2xl object-cover border-4 border-purple-100 shadow-xl">
+                <span class="absolute -bottom-2 -right-2 bg-purple-600 text-white p-2 rounded-full shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                </span>
+            </div>
+        </div>
+
+        <div class="space-y-5">
+            <div class="relative border-2 border-dashed border-purple-200 rounded-xl p-4 hover:border-purple-400 transition-colors">
+                <input type="file" id="imageInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                <div class="text-sm text-purple-600 font-bold">Click to Upload Image</div>
+                <div class="text-xs text-gray-400 mt-1" id="file-name">No file selected</div>
+            </div>
+            
+            <button onclick="uploadImage()" id="btn-submit" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-purple-200">
+                Analyze Face
+            </button>
+        </div>
+
+        <div id="result" class="mt-8 hidden p-4 rounded-2xl bg-purple-50 border border-purple-100 transition-all duration-500">
+            <div class="text-xs font-bold text-purple-400 uppercase tracking-[0.2em]">Expression Detected</div>
+            <div id="emotion-text" class="text-4xl font-black text-gray-800 mt-1">Happy</div>
+            <div class="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-bold shadow-sm">
+                <span id="confidence-text">0%</span>
+            </div>
+        </div>
+        
+        <div id="error-box" class="mt-4 hidden p-3 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-100"></div>
+
+        <div id="loader" class="mt-8 hidden">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-purple-600 mb-2"></div>
+                <span class="text-purple-600 font-bold text-sm">Thinking...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const fileNameDisp = document.getElementById('file-name');
+        
+        // Show file name and preview
+        imageInput.onchange = evt => {
+            const [file] = imageInput.files;
+            if (file) {
+                fileNameDisp.innerText = file.name;
+                document.getElementById('image-preview').src = URL.createObjectURL(file);
+                document.getElementById('preview-container').classList.remove('hidden');
+                document.getElementById('result').classList.add('hidden');
+                document.getElementById('error-box').classList.add('hidden');
+            }
+        }
+
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageInput');
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            const btnSubmit = document.getElementById('btn-submit');
+            const errorBox = document.getElementById('error-box');
+
+            if (fileInput.files.length === 0) {
+                alert("Please select an image first!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            // UI Reset
+            resultDiv.classList.add('hidden');
+            errorBox.classList.add('hidden');
+            loader.classList.remove('hidden');
+            btnSubmit.disabled = true;
+            btnSubmit.classList.add('opacity-50');
+
+            try {
+                // Pointing to FastAPI Port 8000 explicitly
+                const response = await fetch('http://127.0.0.1:8000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Connection Failed (Status: ${response.status})`);
+                }
+
+                const data = await response.json();
+
+                // Update Result
+                document.getElementById('emotion-text').innerText = data.emotion;
+                document.getElementById('confidence-text').innerText = data.confidence + " Sure";
+                resultDiv.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Error Detail:", error);
+                errorBox.innerText = "Error: " + error.message + ". Make sure FastAPI is running on port 8000.";
+                errorBox.classList.remove('hidden');
+            } finally {
+                loader.classList.add('hidden');
+                btnSubmit.disabled = false;
+                btnSubmit.classList.remove('opacity-50');
+            }
+        }
+    </script>
+</body>
+</html>
